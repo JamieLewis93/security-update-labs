@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Defence Desk · Security Update Labs</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/"><span class="logo">D</span> Defence Desk</a>
+    <span class="eyebrow">YOUR SECURITY COMMAND CENTRE</span>
+    <nav aria-label="Main navigation">
+      <a href="#overview" class="active">◈ &nbsp; Overview</a>
+      <a href="#inbox">▤ &nbsp; Security inbox</a>
+      <a href="#connections">◎ &nbsp; Connections</a>
+      <a href="#guardrails">◇ &nbsp; Defence rules</a>
+    </nav>
+    <div class="local-badge"><span class="dot"></span> Local-first workspace<br><small>Your token never reaches the browser.</small></div>
+  </aside>
+  <main id="overview">
+    <header>
+      <div><span class="eyebrow">LESS NOISE. MORE CONTROL.</span><h1>Build your defence.</h1><p>Turn a sea of security notifications into a plan you can act on.</p></div>
+      <button id="sync" class="primary">↻ Sync GitHub</button>
+    </header>
+    <div id="notice" role="status" aria-live="polite"></div>
+    <section class="hero">
+      <div><span class="eyebrow">HUMAN APPROVAL. AGENTIC EXECUTION.</span><h2>Your next move, made clear.</h2><p>Import emails, prioritise verified alerts, and hand approved fixes to trusted workflows. You stay in charge.</p><a href="#import" class="button">Start with an email ↗</a></div>
+      <div class="orbit" aria-hidden="true"><span>◎</span><small>TRIAGE → PLAN → APPROVE → VERIFY</small></div>
+    </section>
+    <section class="metrics" aria-label="Security summary">
+      <article><span class="metric-label">Needs attention</span><strong id="total">0</strong><small>Open alerts &amp; unverified emails</small></article>
+      <article class="critical-metric"><span class="metric-label">Critical / high</span><strong id="urgent">0</strong><small>Review these first</small></article>
+      <article class="purple-metric"><span class="metric-label">Fixes requested</span><strong id="requested">0</strong><small>Not yet verified as fixed</small></article>
+      <article class="green-metric"><span class="metric-label">Verified fixed</span><strong id="fixed">0</strong><small>Confirmed by GitHub</small></article>
+    </section>
+    <section id="connections">
+      <div class="section-heading"><h2>Connected defence</h2><span class="subtle">One workspace, honest coverage</span></div>
+      <div class="connectors">
+        <article><span class="connector-icon github">GH</span><div><h3>GitHub</h3><p id="github-status">Configure to sync Dependabot</p></div><span id="github-badge" class="badge">Not configured</span></article>
+        <article><span class="connector-icon email">@</span><div><h3>Security emails</h3><p>Paste &amp; triage locally</p></div><span class="badge ready">Ready</span></article>
+        <article><span class="connector-icon windows">⊞</span><div><h3>Windows &amp; other platforms</h3><p>Native update connectors planned</p></div><span class="badge">Not connected</span></article>
+      </div>
+    </section>
+    <section class="workspace">
+      <div id="inbox" class="panel">
+        <div class="section-heading"><div><h2>Security inbox</h2><p class="subtle">Prioritised by severity. Review is not resolution.</p></div><span id="count" class="badge">0 alerts</span></div>
+        <div class="filters">
+          <label class="search-label"><span class="sr-only">Search alerts</span><input id="search" type="search" placeholder="Search repository, package or advisory…"></label>
+          <label><span class="sr-only">Filter severity</span><select id="severity"><option value="">All severities</option><option>critical</option><option>high</option><option>medium</option><option>low</option><option>unknown</option></select></label>
+          <label><span class="sr-only">Filter status</span><select id="status"><option value="attention">Needs attention</option><option value="">All statuses</option><option value="fixed">Fixed</option><option value="dismissed">Dismissed</option><option value="reviewed">Reviewed locally</option></select></label>
+        </div>
+        <div id="alerts"></div>
+      </div>
+      <aside class="right-column">
+        <section id="import" class="panel">
+          <span class="eyebrow">TAME YOUR INBOX</span><h2>Start with one email</h2><p>Paste a GitHub security notification. We extract alert links and deduplicate them. No mailbox access needed.</p>
+          <form id="email-form"><label for="email-text">Security email</label><textarea id="email-text" rows="7" maxlength="50000" placeholder="Paste the subject and body here…" required></textarea><button class="primary" type="submit">Import &amp; prioritise</button></form>
+          <small>Email severity is unverified. Remove personal details before pasting. The raw body is not saved or sent to GitHub.</small>
+        </section>
+        <section id="guardrails" class="panel guardrails"><span class="eyebrow">BUILT-IN GUARDRAILS</span><h2>Control, not autopilot.</h2><ul><li>Only allowlisted repositories</li><li>Explicit approval before dispatch</li><li>No automatic merges or dismissals</li><li>Live verification before a fix request</li><li>Independent, tested backups</li></ul><p>No system guarantees zero risk. Review fixes and keep backups isolated from your everyday credentials.</p></section>
+      </aside>
+    </section>
+    <footer>Security Update Labs · Local-first, approval-led defence. Never paste credentials into an email import.</footer>
+  </main>
+  <dialog id="plan-dialog">
+    <form method="dialog"><button class="close" aria-label="Close plan">×</button></form>
+    <span class="eyebrow">YOUR REMEDIATION PLAN</span><h2 id="plan-title"></h2><p id="plan-description"></p><ol id="plan-steps"></ol>
+    <div class="approval"><label><input id="approve" type="checkbox"> I approve running the configured workflow in this repository. It may modify code or create a pull request.</label></div>
+    <p id="workflow-description" class="subtle"></p><button id="dispatch" class="primary" disabled>Approve &amp; request fix</button>
+    <p class="subtle">Requesting a workflow does not mean the vulnerability is fixed. Check Actions, review the PR, and sync again.</p>
+  </dialog>
+</body>
+</html>
