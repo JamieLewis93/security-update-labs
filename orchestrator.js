@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync, renameSync, chmodSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, renameSync, chmodSync, openSync, closeSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 const repositoryPattern = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
@@ -89,12 +89,31 @@ export class Store {
       mkdirSync(directory, { recursive: true, mode: 0o700 });
       chmodSync(directory, 0o700);
       try {
+        this.lock = openSync(join(directory, 'workspace.lock'), 'wx', 0o600);
+      } catch (error) {
+        if (error.code === 'EEXIST') throw new Error('Workspace locked. Stop the other instance; after a crash, confirm it is stopped before removing .local/workspace.lock.');
+        throw error;
+      }
+      this.release = () => this.close();
+      process.once('exit', this.release);
+      try {
         const data = JSON.parse(readFileSync(join(directory, 'alerts.json'), 'utf8'));
         for (const alert of data) this.alerts.set(alert.id, alert);
       } catch (error) {
-        if (error.code !== 'ENOENT') throw new Error('Cannot read local alert storage; restore or move .local/alerts.json.');
+        if (error.code !== 'ENOENT') {
+          this.close();
+          throw new Error('Cannot read local alert storage; restore or move .local/alerts.json.');
+        }
       }
     }
+  }
+
+  close() {
+    if (this.lock === undefined) return;
+    closeSync(this.lock);
+    this.lock = undefined;
+    unlinkSync(join(this.directory, 'workspace.lock'));
+    process.removeListener('exit', this.release);
   }
 
   save() {
@@ -114,14 +133,26 @@ export class Store {
     return alerts.length;
   }
 
-  update(alert) {
+  update(alert, persist = true) {
     const previous = this.alerts.get(alert.id);
     const pending = ['requested', 'uncertain'].includes(previous?.remediation);
     this.alerts.set(alert.id, {
       ...alert, reviewed: previous?.reviewed || false,
       remediation: alert.status === 'open' && pending ? previous.remediation : null,
     });
-    this.save();
+    if (persist) this.save();
+  }
+
+  updateMany(alerts) {
+    const previous = this.alerts;
+    this.alerts = new Map(previous);
+    try {
+      for (const alert of alerts) this.update(alert, false);
+      this.save();
+    } catch (error) {
+      this.alerts = previous;
+      throw error;
+    }
   }
 
   list() {
@@ -155,7 +186,7 @@ export class GitHub {
     }
     if (!response.ok) {
       const error = new Error(`GitHub returned HTTP ${response.status}. Check repository access, permissions, rate limits and workflow configuration.`);
-      error.definite = true;
+      error.definite = response.status >= 400 && response.status < 500 && response.status !== 408;
       throw error;
     }
     return response.status === 204 ? null : response.json();
@@ -179,7 +210,7 @@ export class GitHub {
         if (page >= 100) throw new Error('Sync exceeded 10,000 alerts per repository; narrow the configured repositories.');
       }
     }
-    for (const alert of fetched) store.update(alert);
+    store.updateMany(fetched);
     return fetched.length;
   }
 

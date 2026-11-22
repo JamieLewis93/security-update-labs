@@ -17,7 +17,7 @@ export function createApp({ config = configuration(), store = new Store(join(dir
   const csrf = randomBytes(32).toString('hex');
   const origin = `http://127.0.0.1:${port}`;
   let busy = false;
-  return createServer(async (request, response) => {
+  const app = createServer(async (request, response) => {
     response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'no-referrer');
@@ -95,11 +95,16 @@ export function createApp({ config = configuration(), store = new Store(join(dir
       busy = false;
     }
   });
+  app.on('close', () => store.close());
+  return app;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const port = Number(process.env.PORT || 8787);
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('PORT must be between 1024 and 65535.');
   const app = createApp({ port });
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.once(signal, () => app.close());
+  }
   app.listen(port, '127.0.0.1', () => console.log(`Defence Desk: http://127.0.0.1:${port}`));
 }

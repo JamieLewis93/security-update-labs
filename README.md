@@ -29,6 +29,11 @@ as the title: remove sensitive details before importing. Local storage is not
 encrypted; do not run this on a shared or untrusted machine. Close the process
 with Ctrl+C; delete `.local` to reset your workspace.
 
+Only one process may use the workspace at a time, even on a different port.
+Normal shutdown releases `.local/workspace.lock`. After a forced termination,
+confirm the old process is no longer running before manually removing that lock
+file; never remove a live process's lock.
+
 ### Connect GitHub
 
 Set environment variables **before** starting the server. Do not put tokens in
@@ -82,8 +87,9 @@ The integration uses the documented
 [workflow dispatch endpoint](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event).
 A requested workflow is **not a verified fix**: inspect Actions, review the PR,
 merge only after passing checks, and sync again to confirm GitHub reports `fixed`.
-Repeated dispatches are blocked. If the network fails during dispatch, the request
-is marked uncertain and is not retried automatically. Check Actions before any
+Repeated dispatches are blocked. If the network fails during dispatch,
+or GitHub returns a server error or request timeout, the request is marked
+uncertain and is not retried automatically. Check Actions before any
 manual recovery; there is no retry button. An explicitly rejected request can be
 approved again after correcting its configuration.
 

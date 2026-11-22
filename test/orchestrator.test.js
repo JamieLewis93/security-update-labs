@@ -81,14 +81,19 @@ test('sorts alerts by severity without marking unknown severities safe', () => {
 
 test('local persistence survives restart and has private file permissions', () => {
   const directory = mkdtempSync(join(tmpdir(), 'defence-desk-'));
+  let store;
   try {
-    const store = new Store(directory);
+    store = new Store(directory);
     store.import('High alert\nhttps://github.com/team/project/security/dependabot/12');
-    assert.equal(new Store(directory).list().length, 1);
+    assert.throws(() => new Store(directory), /Workspace locked/);
+    store.close();
+    store = new Store(directory);
+    assert.equal(store.list().length, 1);
     assert.equal(statSync(join(directory, 'alerts.json')).mode & 0o777, 0o600);
     assert.equal(statSync(directory).mode & 0o777, 0o700);
     assert.equal(readFileSync(join(directory, 'alerts.json'), 'utf8').includes(config.token), false);
   } finally {
+    store?.close();
     rmSync(directory, { recursive: true, force: true });
   }
 });
@@ -97,6 +102,8 @@ test('GitHub sync paginates, upgrades unverified email references and preserves 
   const store = new Store();
   store.import('https://github.com/team/project/security/dependabot/12');
   store.alerts.get(id).reviewed = true;
+  let saves = 0;
+  store.save = () => saves++;
   const calls = [];
   const github = new GitHub(config, async (url, options) => {
     calls.push({ url, options });
@@ -105,6 +112,7 @@ test('GitHub sync paginates, upgrades unverified email references and preserves 
   assert.equal(await github.sync(store), 101);
   assert.equal(store.alerts.get(id).source, 'github');
   assert.equal(store.alerts.get(id).reviewed, true);
+  assert.equal(saves, 1);
   assert.match(calls[1].url, /page=2$/);
   assert.equal(calls[0].options.redirect, 'error');
 });
@@ -114,6 +122,14 @@ test('partial sync failure leaves the previous workspace intact', async () => {
   const github = new GitHub({ ...config, repositories: [repository, 'other/repo'] }, async url =>
     url.includes('/other/') ? response({}, 403) : response([rawAlert(13)]));
   await assert.rejects(github.sync(store), /HTTP 403/);
+  assert.deepEqual(store.list().map(alert => alert.number), [12]);
+});
+
+test('failed sync persistence restores the prior in-memory snapshot', async () => {
+  const store = seededStore();
+  store.save = () => { throw new Error('Disk full'); };
+  const github = new GitHub(config, async () => response([rawAlert(13)]));
+  await assert.rejects(github.sync(store), /Disk full/);
   assert.deepEqual(store.list().map(alert => alert.number), [12]);
 });
 
@@ -185,6 +201,17 @@ test('definitive dispatch rejection allows a later explicitly approved attempt',
   const store = seededStore();
   await assert.rejects(github.remediate(store, id, true), /HTTP 422/);
   assert.equal(store.alerts.get(id).remediation, null);
+});
+
+test('server errors and request timeouts cannot prove a dispatch was rejected', async () => {
+  for (const status of [408, 500, 502, 503]) {
+    let calls = 0;
+    const github = new GitHub(config, async () => ++calls === 1 ? response(rawAlert()) : response({}, status));
+    const store = seededStore();
+    await assert.rejects(github.remediate(store, id, true), new RegExp(`HTTP ${status}`));
+    assert.equal(store.alerts.get(id).remediation, 'uncertain');
+    await assert.rejects(github.remediate(store, id, true), /Already requested/);
+  }
 });
 
 test('network failures never expose credentials', async () => {
